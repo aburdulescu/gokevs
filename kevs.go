@@ -1,7 +1,9 @@
 package kevs
 
 import (
+	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -57,12 +59,12 @@ type KeyValue struct {
 
 type Table []KeyValue
 
-func Parse(params Params) (Table, error) {
-	tokens, err := Scan(params)
+func Parse(file, content string, flags Flags) (Table, error) {
+	tokens, err := Scan(file, content, flags)
 	if err != nil {
 		return nil, err
 	}
-	return ParseTokens(params, tokens)
+	return ParseTokens(file, content, flags, tokens)
 }
 
 type TokenKind uint8
@@ -95,14 +97,18 @@ type Token struct {
 	Line  int
 }
 
-type Params struct {
-	File         string
-	Content      string
+type Flags struct {
 	AbortOnError bool
 }
 
+type params struct {
+	file    string
+	content string
+	flags   Flags
+}
+
 type scanner struct {
-	params Params
+	params params
 	tokens []Token
 	line   int
 	err    error
@@ -122,13 +128,17 @@ const (
 	spaces = " \t"
 )
 
-func Scan(params Params) ([]Token, error) {
+func Scan(file, content string, flags Flags) ([]Token, error) {
 	s := scanner{
-		params: params,
-		line:   1,
+		params: params{
+			file:    file,
+			content: content,
+			flags:   flags,
+		},
+		line: 1,
 	}
 
-	for len(s.params.Content) != 0 {
+	for len(s.params.content) != 0 {
 		s.trim_space()
 		ok := false
 		switch {
@@ -148,14 +158,14 @@ func Scan(params Params) ([]Token, error) {
 }
 
 func (self *scanner) trim_space() {
-	self.params.Content = strings.TrimLeft(self.params.Content, spaces)
+	self.params.content = strings.TrimLeft(self.params.content, spaces)
 }
 
 func (self *scanner) expect(c byte) bool {
-	if len(self.params.Content) == 0 {
+	if len(self.params.content) == 0 {
 		return false
 	}
-	return self.params.Content[0] == c
+	return self.params.content[0] == c
 }
 
 func (self *scanner) scan_newline() bool {
@@ -165,11 +175,11 @@ func (self *scanner) scan_newline() bool {
 }
 
 func (self *scanner) advance(n int) {
-	self.params.Content = self.params.Content[n:]
+	self.params.content = self.params.content[n:]
 }
 
 func (self *scanner) scan_comment() bool {
-	newline := strings.IndexByte(self.params.Content, '\n')
+	newline := strings.IndexByte(self.params.content, '\n')
 	if newline == -1 {
 		self.errorf("comment does not end with newline")
 		return false
@@ -188,9 +198,9 @@ func (self *scanner) scan_key_value() bool {
 }
 
 func (self *scanner) errorf(format string, args ...any) {
-	self.err = fmt.Errorf("%s:%d: error: scan: %s", self.params.File, self.line, fmt.Sprintf(format, args...))
+	self.err = fmt.Errorf("%s:%d: error: scan: %s", self.params.file, self.line, fmt.Sprintf(format, args...))
 
-	if self.params.AbortOnError {
+	if self.params.flags.AbortOnError {
 		panic(self.err)
 	}
 }
@@ -205,7 +215,7 @@ func indexAny(s, chars string) (rune, int) {
 }
 
 func (self *scanner) scan_key() bool {
-	c, i := indexAny(self.params.Content, "=;\n")
+	c, i := indexAny(self.params.content, "=;\n")
 	if c != kKeyValSep {
 		self.errorf("key-value pair is missing separator")
 		return false
@@ -254,7 +264,7 @@ func (self *scanner) scan_delim(c byte) bool {
 func (self *scanner) scan_string_value() bool {
 	// advance past leading quote
 	end := 1
-	s := self.params.Content
+	s := self.params.content
 
 	for {
 		// search for trailing quote
@@ -279,7 +289,7 @@ func (self *scanner) scan_string_value() bool {
 }
 
 func (self *scanner) scan_raw_string() bool {
-	end := strings.IndexByte(self.params.Content[1:], kRawStringBegin)
+	end := strings.IndexByte(self.params.content[1:], kRawStringBegin)
 	if end == -1 {
 		self.errorf("raw string value does not end with backtick")
 		return false
@@ -297,7 +307,7 @@ func (self *scanner) scan_raw_string() bool {
 func (self *scanner) scan_int_or_bool_value() bool {
 	// search for all possible value endings
 	// if semicolon(or none of them) is not found => error
-	c, end := indexAny(self.params.Content, ";]}\n")
+	c, end := indexAny(self.params.content, ";]}\n")
 	if end == -1 || c != kKeyValEnd {
 		self.errorf("integer or boolean value does not end with semicolon")
 		return false
@@ -310,7 +320,7 @@ func (self *scanner) scan_list_value() bool {
 	self.append_delim()
 	for {
 		self.trim_space()
-		if len(self.params.Content) == 0 {
+		if len(self.params.content) == 0 {
 			self.errorf("end of input without list end")
 			return false
 		}
@@ -344,7 +354,7 @@ func (self *scanner) scan_table_value() bool {
 	self.append_delim()
 	for {
 		self.trim_space()
-		if len(self.params.Content) == 0 {
+		if len(self.params.content) == 0 {
 			self.errorf("end of input without table end")
 			return false
 		}
@@ -377,14 +387,14 @@ func (self *scanner) scan_table_value() bool {
 func (self *scanner) append_delim() {
 	self.tokens = append(self.tokens, Token{
 		Kind:  TokenKindDelim,
-		Value: self.params.Content[0:1],
+		Value: self.params.content[0:1],
 		Line:  self.line,
 	})
 	self.advance(1)
 }
 
 func (self *scanner) append(kind TokenKind, end int) {
-	val := self.params.Content[:end]
+	val := self.params.content[:end]
 	val = strings.TrimRight(val, spaces)
 
 	self.tokens = append(self.tokens, Token{
@@ -397,16 +407,20 @@ func (self *scanner) append(kind TokenKind, end int) {
 }
 
 type parser struct {
-	params Params
+	params params
 	tokens []Token
 	table  Table
 	i      int
 	err    error
 }
 
-func ParseTokens(params Params, tokens []Token) (Table, error) {
+func ParseTokens(file, content string, flags Flags, tokens []Token) (Table, error) {
 	p := parser{
-		params: params,
+		params: params{
+			file:    file,
+			content: content,
+			flags:   flags,
+		},
 		tokens: tokens,
 	}
 
@@ -742,9 +756,9 @@ func (self parser) expect_delim(delim byte) bool {
 }
 
 func (self *parser) errorf(format string, args ...any) {
-	self.err = fmt.Errorf("%s:%d: error: parse: %s", self.params.File, self.get().Line, fmt.Sprintf(format, args...))
+	self.err = fmt.Errorf("%s:%d: error: parse: %s", self.params.file, self.get().Line, fmt.Sprintf(format, args...))
 
-	if self.params.AbortOnError {
+	if self.params.flags.AbortOnError {
 		panic(self.err)
 	}
 }
@@ -952,4 +966,108 @@ func str_to_int(s string, base uint64) (int64, error) {
 	}
 
 	return n, nil
+}
+
+func (self Table) get(key string) (*Value, error) {
+	for _, kv := range self {
+		if kv.Key == key {
+			return &kv.Value, nil
+		}
+	}
+	return nil, errors.New("key not found")
+}
+
+func (self Table) GetString(key string) (string, error) {
+	val, err := self.get(key)
+	if err != nil {
+		return "", err
+	}
+	if val.Kind != ValueKindString {
+		return "", errors.New("value is not string")
+	}
+	return val.Data.String, nil
+}
+
+func (self Table) GetInteger(key string) (int64, error) {
+	val, err := self.get(key)
+	if err != nil {
+		return 0, err
+	}
+	if val.Kind != ValueKindInteger {
+		return 0, errors.New("value is not integer")
+	}
+	return val.Data.Integer, nil
+}
+
+func (self Table) GetBoolean(key string) (bool, error) {
+	val, err := self.get(key)
+	if err != nil {
+		return false, err
+	}
+	if val.Kind != ValueKindBoolean {
+		return false, errors.New("value is not boolean")
+	}
+	return val.Data.Boolean, nil
+}
+
+const (
+	reflectTag = "kevs"
+)
+
+func isDstValid(dst any) bool {
+	t := reflect.TypeOf(dst)
+	tt := t.Elem()
+	return t.Kind() == reflect.Pointer && tt.Kind() == reflect.Struct
+}
+
+func (self Table) To(dst any) error {
+	if !isDstValid(dst) {
+		return errors.New("destination must be a pointer to a struct")
+	}
+	v := reflect.Indirect(reflect.ValueOf(dst))
+	if !v.CanAddr() {
+		return errors.New("destination cannot be addressed")
+	}
+	t := reflect.TypeOf(dst).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		name, found := f.Tag.Lookup(reflectTag)
+		if !found {
+			continue
+		}
+		switch f.Type.Kind() {
+		case reflect.String:
+			vv, err := self.GetString(name)
+			if err != nil {
+				return fmt.Errorf("struct '%s': field '%s': %v",
+					t.Name(), f.Name, err,
+				)
+			}
+			v.Field(i).SetString(vv)
+		case reflect.Int:
+			vv, err := self.GetInteger(name)
+			if err != nil {
+				return fmt.Errorf("struct '%s': field '%s': %v",
+					t.Name(), f.Name, err,
+				)
+			}
+			v.Field(i).SetInt(int64(vv))
+		case reflect.Bool:
+			vv, err := self.GetBoolean(name)
+			if err != nil {
+				return fmt.Errorf("struct '%s': field '%s': %v",
+					t.Name(), f.Name, err,
+				)
+			}
+			v.Field(i).SetBool(vv)
+		default:
+			return fmt.Errorf("struct '%s': field '%s': type must be one of: %s, %s, %s",
+				t.Name(), f.Name, reflect.String, reflect.Int, reflect.Bool,
+			)
+		}
+	}
+	return nil
 }

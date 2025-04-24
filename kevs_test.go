@@ -55,3 +55,29 @@ func Test_ucs_to_utf8(t *testing.T) {
 		}
 	}
 }
+
+func TestTo(t *testing.T) {
+	type data struct {
+		s string `kevs:"s"`
+		i int    `kevs:"i"`
+		b bool   `kevs:"b"`
+	}
+
+	content := `
+s = "42";
+i = 42;
+b = true;
+`
+
+	root, err := Parse("none", content, Flags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var d data
+	if err := root.To(&d); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(d)
+}
