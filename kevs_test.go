@@ -58,9 +58,9 @@ func Test_ucs_to_utf8(t *testing.T) {
 
 func TestTo(t *testing.T) {
 	type data struct {
-		s string `kevs:"s"`
-		i int    `kevs:"i"`
-		b bool   `kevs:"b"`
+		Str  string `kevs:"s"`
+		Int  int    `kevs:"i"`
+		Bool bool   `kevs:"b"`
 	}
 
 	content := `
