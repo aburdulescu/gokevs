@@ -1063,6 +1063,10 @@ func (self Table) To(dst any) error {
 				)
 			}
 			v.Field(i).SetBool(vv)
+		case reflect.Slice, reflect.Array:
+			return errors.New("TODO")
+		case reflect.Struct:
+			return errors.New("TODO")
 		default:
 			return fmt.Errorf("struct '%s': field '%s': type must be one of: %s, %s, %s",
 				t.Name(), f.Name, reflect.String, reflect.Int, reflect.Bool,

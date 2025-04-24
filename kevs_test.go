@@ -58,15 +58,17 @@ func Test_ucs_to_utf8(t *testing.T) {
 
 func TestTo(t *testing.T) {
 	type data struct {
-		Str  string `kevs:"s"`
-		Int  int    `kevs:"i"`
-		Bool bool   `kevs:"b"`
+		Str  string   `kevs:"s"`
+		Int  int      `kevs:"i"`
+		Bool bool     `kevs:"b"`
+		List []string `kevs:"l"`
 	}
 
 	content := `
 s = "42";
 i = 42;
 b = true;
+l = [ "aa"; "bb"; ];
 `
 
 	root, err := Parse("none", content, Flags{})
