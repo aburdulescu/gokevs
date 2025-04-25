@@ -1010,6 +1010,17 @@ func (self Table) GetBoolean(key string) (bool, error) {
 	return val.Data.Boolean, nil
 }
 
+func (self Table) GetTable(key string) (Table, error) {
+	val, err := self.get(key)
+	if err != nil {
+		return nil, err
+	}
+	if val.Kind != ValueKindTable {
+		return nil, errors.New("value is not table")
+	}
+	return val.Data.Table, nil
+}
+
 const (
 	reflectTag = "kevs"
 )
@@ -1064,9 +1075,17 @@ func (self Table) To(dst any) error {
 			}
 			v.Field(i).SetBool(vv)
 		case reflect.Slice, reflect.Array:
-			return errors.New("TODO")
+			// TODO
+			return nil
 		case reflect.Struct:
-			return errors.New("TODO")
+			vv, err := self.GetTable(name)
+			if err != nil {
+				return fmt.Errorf("struct '%s': field '%s': %v",
+					t.Name(), f.Name, err,
+				)
+			}
+			// TODO
+			return vv.To(&v)
 		default:
 			return fmt.Errorf("struct '%s': field '%s': type must be one of: %s, %s, %s",
 				t.Name(), f.Name, reflect.String, reflect.Int, reflect.Bool,

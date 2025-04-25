@@ -62,13 +62,18 @@ func TestTo(t *testing.T) {
 		Int  int      `kevs:"i"`
 		Bool bool     `kevs:"b"`
 		List []string `kevs:"l"`
+		Ss   struct {
+			X int    `kevs:"x"`
+			Y string `kevs:"y"`
+		} `kevs:"ss"`
 	}
 
 	content := `
 s = "42";
 i = 42;
 b = true;
-l = [ "aa"; "bb"; ];
+# l = [ "aa"; "bb"; ];
+ss = { x = 2; y = "3"; };
 `
 
 	root, err := Parse("none", content, Flags{})
