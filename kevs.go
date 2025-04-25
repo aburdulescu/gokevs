@@ -1025,21 +1025,25 @@ const (
 	reflectTag = "kevs"
 )
 
-func isDstValid(dst any) bool {
-	t := reflect.TypeOf(dst)
+func isDstValid(v reflect.Value) bool {
+	t := v.Type()
 	tt := t.Elem()
 	return t.Kind() == reflect.Pointer && tt.Kind() == reflect.Struct
 }
 
 func (self Table) To(dst any) error {
-	if !isDstValid(dst) {
+	return self.unmarshal(reflect.ValueOf(dst))
+}
+
+func (self Table) unmarshal(val reflect.Value) error {
+	if !isDstValid(val) {
 		return errors.New("destination must be a pointer to a struct")
 	}
-	v := reflect.Indirect(reflect.ValueOf(dst))
+	v := reflect.Indirect(val)
 	if !v.CanAddr() {
 		return errors.New("destination cannot be addressed")
 	}
-	t := reflect.TypeOf(dst).Elem()
+	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		if !f.IsExported() {
@@ -1085,7 +1089,7 @@ func (self Table) To(dst any) error {
 				)
 			}
 			// TODO
-			return vv.To(&v)
+			return vv.unmarshal(v.Field(i))
 		default:
 			return fmt.Errorf("struct '%s': field '%s': type must be one of: %s, %s, %s",
 				t.Name(), f.Name, reflect.String, reflect.Int, reflect.Bool,
