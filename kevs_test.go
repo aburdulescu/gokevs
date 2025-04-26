@@ -56,24 +56,24 @@ func Test_ucs_to_utf8(t *testing.T) {
 	}
 }
 
-func TestTo(t *testing.T) {
+func TestUnmarshal(t *testing.T) {
 	type data struct {
-		Str  string   `kevs:"s"`
-		Int  int      `kevs:"i"`
-		Bool bool     `kevs:"b"`
-		List []string `kevs:"l"`
-		Ss   struct {
+		String  string   `kevs:"string"`
+		Integer int      `kevs:"integer"`
+		Boolean bool     `kevs:"boolean"`
+		List    []string `kevs:"list"`
+		Struct  struct {
 			X int    `kevs:"x"`
 			Y string `kevs:"y"`
-		} `kevs:"ss"`
+		} `kevs:"struct"`
 	}
 
 	content := `
-s = "42";
-i = 42;
-b = true;
-# l = [ "aa"; "bb"; ];
-ss = { x = 2; y = "3"; };
+string = "42";
+integer = 42;
+boolean = true;
+# list = [ "aa"; "bb"; ];
+struct = { x = 2; y = "3"; };
 `
 
 	root, err := Parse("none", content, Flags{})
@@ -82,9 +82,25 @@ ss = { x = 2; y = "3"; };
 	}
 
 	var d data
-	if err := root.To(&d); err != nil {
+	if err := root.Unmarshal(&d); err != nil {
 		t.Fatal(err)
 	}
 
 	t.Log(d)
+
+	if d.String != "42" {
+		t.Fatal("fail")
+	}
+	if d.Integer != 42 {
+		t.Fatal("fail")
+	}
+	if d.Boolean != true {
+		t.Fatal("fail")
+	}
+	if d.Struct.X != 2 {
+		t.Fatal("fail")
+	}
+	if d.Struct.Y != "3" {
+		t.Fatal("fail")
+	}
 }

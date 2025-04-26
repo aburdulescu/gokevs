@@ -1025,18 +1025,9 @@ const (
 	reflectTag = "kevs"
 )
 
-func isDstValid(v reflect.Value) bool {
-	t := v.Type()
-	tt := t.Elem()
-	return t.Kind() == reflect.Pointer && tt.Kind() == reflect.Struct
-}
-
-func (self Table) To(dst any) error {
-	return self.unmarshal(reflect.ValueOf(dst))
-}
-
-func (self Table) unmarshal(val reflect.Value) error {
-	if !isDstValid(val) {
+func (self Table) Unmarshal(dst any) error {
+	val := reflect.ValueOf(dst)
+	if val.Type().Kind() != reflect.Pointer || val.Elem().Kind() != reflect.Struct {
 		return errors.New("destination must be a pointer to a struct")
 	}
 	v := reflect.Indirect(val)
@@ -1046,6 +1037,7 @@ func (self Table) unmarshal(val reflect.Value) error {
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
+		//fmt.Println(f.Name, f.Type.Kind(), f.IsExported())
 		if !f.IsExported() {
 			continue
 		}
@@ -1080,7 +1072,7 @@ func (self Table) unmarshal(val reflect.Value) error {
 			v.Field(i).SetBool(vv)
 		case reflect.Slice, reflect.Array:
 			// TODO
-			return nil
+			//return nil
 		case reflect.Struct:
 			vv, err := self.GetTable(name)
 			if err != nil {
@@ -1088,8 +1080,7 @@ func (self Table) unmarshal(val reflect.Value) error {
 					t.Name(), f.Name, err,
 				)
 			}
-			// TODO
-			return vv.unmarshal(v.Field(i))
+			return vv.Unmarshal(v.Field(i).Addr().Interface())
 		default:
 			return fmt.Errorf("struct '%s': field '%s': type must be one of: %s, %s, %s",
 				t.Name(), f.Name, reflect.String, reflect.Int, reflect.Bool,
