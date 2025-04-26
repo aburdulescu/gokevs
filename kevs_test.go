@@ -110,3 +110,8 @@ struct = { x = 2; y = "3"; };
 		t.Fatal("fail")
 	}
 }
+
+// TODO: test list of structs
+// TODO: test struct of lists
+// TODO: test list of lists
+// TODO: test list with different elem types
