@@ -1021,6 +1021,17 @@ func (self Table) GetTable(key string) (Table, error) {
 	return val.Data.Table, nil
 }
 
+func (self Table) GetList(key string) (List, error) {
+	val, err := self.get(key)
+	if err != nil {
+		return nil, err
+	}
+	if val.Kind != ValueKindList {
+		return nil, errors.New("value is not list")
+	}
+	return val.Data.List, nil
+}
+
 const (
 	reflectTag = "kevs"
 )
@@ -1037,7 +1048,6 @@ func (self Table) Unmarshal(dst any) error {
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		//fmt.Println(f.Name, f.Type.Kind(), f.IsExported())
 		if !f.IsExported() {
 			continue
 		}
@@ -1049,43 +1059,62 @@ func (self Table) Unmarshal(dst any) error {
 		case reflect.String:
 			vv, err := self.GetString(name)
 			if err != nil {
-				return fmt.Errorf("struct '%s': field '%s': %v",
-					t.Name(), f.Name, err,
-				)
+				return fmt.Errorf("struct '%s': field '%s': %v", t.Name(), f.Name, err)
 			}
 			v.Field(i).SetString(vv)
 		case reflect.Int:
 			vv, err := self.GetInteger(name)
 			if err != nil {
-				return fmt.Errorf("struct '%s': field '%s': %v",
-					t.Name(), f.Name, err,
-				)
+				return fmt.Errorf("struct '%s': field '%s': %v", t.Name(), f.Name, err)
 			}
 			v.Field(i).SetInt(int64(vv))
 		case reflect.Bool:
 			vv, err := self.GetBoolean(name)
 			if err != nil {
-				return fmt.Errorf("struct '%s': field '%s': %v",
-					t.Name(), f.Name, err,
-				)
+				return fmt.Errorf("struct '%s': field '%s': %v", t.Name(), f.Name, err)
 			}
 			v.Field(i).SetBool(vv)
 		case reflect.Slice, reflect.Array:
-			// TODO
-			//return nil
+			vv, err := self.GetList(name)
+			if err != nil {
+				return fmt.Errorf("struct '%s': field '%s': %v", t.Name(), f.Name, err)
+			}
+			if err := vv.unmarshal(v.Field(i)); err != nil {
+				return err
+			}
 		case reflect.Struct:
 			vv, err := self.GetTable(name)
 			if err != nil {
-				return fmt.Errorf("struct '%s': field '%s': %v",
-					t.Name(), f.Name, err,
-				)
+				return fmt.Errorf("struct '%s': field '%s': %v", t.Name(), f.Name, err)
 			}
-			return vv.Unmarshal(v.Field(i).Addr().Interface())
+			if vv.Unmarshal(v.Field(i).Addr().Interface()); err != nil {
+				return err
+			}
 		default:
-			return fmt.Errorf("struct '%s': field '%s': type must be one of: %s, %s, %s",
-				t.Name(), f.Name, reflect.String, reflect.Int, reflect.Bool,
-			)
+			return fmt.Errorf("struct '%s': field '%s': type must be one of: %s, %s, %s", t.Name(), f.Name, reflect.String, reflect.Int, reflect.Bool)
 		}
 	}
+	return nil
+}
+
+func (self List) unmarshal(v reflect.Value) error {
+	slice := reflect.MakeSlice(v.Type(), len(self), len(self))
+	for i, item := range self {
+		elem := slice.Index(i)
+		switch {
+		case item.Kind == ValueKindString && elem.Kind() == reflect.String:
+			elem.SetString(item.Data.String)
+		case item.Kind == ValueKindInteger && elem.Kind() == reflect.Int:
+			elem.SetInt(item.Data.Integer)
+		case item.Kind == ValueKindBoolean && elem.Kind() == reflect.Bool:
+			elem.SetBool(item.Data.Boolean)
+		case item.Kind == ValueKindTable && elem.Kind() == reflect.Struct:
+			err := item.Data.Table.Unmarshal(elem.Addr().Interface())
+			if err != nil {
+				return err
+			}
+		}
+	}
+	v.Set(slice)
 	return nil
 }

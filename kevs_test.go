@@ -72,7 +72,7 @@ func TestUnmarshal(t *testing.T) {
 string = "42";
 integer = 42;
 boolean = true;
-# list = [ "aa"; "bb"; ];
+list = [ "aa"; "bb"; ];
 struct = { x = 2; y = "3"; };
 `
 
@@ -101,6 +101,12 @@ struct = { x = 2; y = "3"; };
 		t.Fatal("fail")
 	}
 	if d.Struct.Y != "3" {
+		t.Fatal("fail")
+	}
+	if d.List[0] != "aa" {
+		t.Fatal("fail")
+	}
+	if d.List[1] != "bb" {
 		t.Fatal("fail")
 	}
 }
