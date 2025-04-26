@@ -41,13 +41,11 @@ func mainErr() error {
 		return err
 	}
 
-	params := kevs.Params{
-		File:         file,
-		Content:      string(data),
+	flags := kevs.Flags{
 		AbortOnError: *abortOnError,
 	}
 
-	tokens, err := kevs.Scan(params)
+	tokens, err := kevs.Scan(file, string(data), flags)
 	if err != nil {
 		return err
 	}
@@ -62,7 +60,7 @@ func mainErr() error {
 		return nil
 	}
 
-	root, err := kevs.ParseTokens(params, tokens)
+	root, err := kevs.ParseTokens(file, string(data), flags, tokens)
 	if err != nil {
 		return err
 	}
