@@ -81,6 +81,8 @@ struct = { x = 2; y = "3"; };
 		t.Fatal(err)
 	}
 
+	t.Log(root.ToString())
+
 	var d data
 	if err := root.Unmarshal(&d); err != nil {
 		t.Fatal(err)
@@ -109,6 +111,7 @@ struct = { x = 2; y = "3"; };
 	if d.List[1] != "bb" {
 		t.Fatal("fail")
 	}
+
 }
 
 // TODO: test list of structs
