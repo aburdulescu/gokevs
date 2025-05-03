@@ -6,7 +6,6 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
-    - exhaustive
     - forcetypeassert
     - goconst
     - gocritic

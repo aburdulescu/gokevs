@@ -818,47 +818,11 @@ func (self Table) Dump() {
 		case ValueKindInteger:
 			fmt.Printf("%s %s %d\n", kv.Key, kv.Value.Kind, kv.Value.Data.Integer)
 
-		case ValueKindUndefined:
-			fmt.Printf("%s %s\n", kv.Key, kv.Value.Kind)
-
 		default:
 			fmt.Printf("%s %s\n", kv.Key, kv.Value.Kind)
 
 		}
 	}
-}
-
-func (self Table) ToString() string {
-	return self.toString(0)
-}
-
-const (
-	indent = "  "
-)
-
-func (self Table) toString(level int) string {
-	s := new(strings.Builder)
-	for _, kv := range self {
-		switch kv.Value.Kind {
-		case ValueKindTable:
-			vs := kv.Value.Data.Table.toString(level + 1)
-			fmt.Fprintf(s, "%s%s = {\n%s};\n", strings.Repeat(indent, level), kv.Key, vs)
-		case ValueKindList:
-			vs := kv.Value.Data.List.toString(level + 1)
-			fmt.Fprintf(s, "%s%s = [\n%s];\n", strings.Repeat(indent, level), kv.Key, vs)
-		case ValueKindString:
-			fmt.Fprintf(s, "%s%s = \"%s\";\n", strings.Repeat(indent, level), kv.Key, kv.Value.Data.String)
-		case ValueKindBoolean:
-			fmt.Fprintf(s, "%s%s = %v;\n", strings.Repeat(indent, level), kv.Key, kv.Value.Data.Boolean)
-		case ValueKindInteger:
-			fmt.Fprintf(s, "%s%s = %d;\n", strings.Repeat(indent, level), kv.Key, kv.Value.Data.Integer)
-		case ValueKindUndefined:
-			panic(fmt.Sprintf("unexpected value: %s %s", kv.Key, kv.Value.Kind))
-		default:
-			panic(fmt.Sprintf("unexpected value: %s %s", kv.Key, kv.Value.Kind))
-		}
-	}
-	return s.String()
 }
 
 func (self List) Dump() {
@@ -881,39 +845,11 @@ func (self List) Dump() {
 		case ValueKindInteger:
 			fmt.Printf("%s %d\n", v.Kind, v.Data.Integer)
 
-		case ValueKindUndefined:
-			fmt.Printf("%s\n", v.Kind)
-
 		default:
 			fmt.Printf("%s\n", v.Kind)
 
 		}
 	}
-}
-
-func (self List) toString(level int) string {
-	s := new(strings.Builder)
-	for _, v := range self {
-		switch v.Kind {
-		case ValueKindTable:
-			vs := v.Data.Table.toString(level + 1)
-			fmt.Fprintf(s, "%s%s;\n", strings.Repeat(indent, level), vs)
-		case ValueKindList:
-			vs := v.Data.List.toString(level + 1)
-			fmt.Fprintf(s, "%s%s;\n", strings.Repeat(indent, level), vs)
-		case ValueKindString:
-			fmt.Fprintf(s, "%s%s;\n", strings.Repeat(indent, level), v.Data.String)
-		case ValueKindBoolean:
-			fmt.Fprintf(s, "%s%v;\n", strings.Repeat(indent, level), v.Data.Boolean)
-		case ValueKindInteger:
-			fmt.Fprintf(s, "%s%d;\n", strings.Repeat(indent, level), v.Data.Integer)
-		case ValueKindUndefined:
-			panic(fmt.Sprintf("unexpected value: %s", v.Kind))
-		default:
-			panic(fmt.Sprintf("unexpected value: %s", v.Kind))
-		}
-	}
-	return s.String()
 }
 
 func str_to_uint(s string, base uint64) (uint64, error) {
@@ -1117,25 +1053,25 @@ func (self Table) Unmarshal(dst any) error {
 		case reflect.String:
 			vv, err := self.GetString(name)
 			if err != nil {
-				return fmt.Errorf("struct '%s': field '%s': %v", t.Name(), f.Name, err)
+				return fmt.Errorf("struct '%s': field '%s': %w", t.Name(), f.Name, err)
 			}
 			v.Field(i).SetString(vv)
 		case reflect.Int:
 			vv, err := self.GetInteger(name)
 			if err != nil {
-				return fmt.Errorf("struct '%s': field '%s': %v", t.Name(), f.Name, err)
+				return fmt.Errorf("struct '%s': field '%s': %w", t.Name(), f.Name, err)
 			}
-			v.Field(i).SetInt(int64(vv))
+			v.Field(i).SetInt(vv)
 		case reflect.Bool:
 			vv, err := self.GetBoolean(name)
 			if err != nil {
-				return fmt.Errorf("struct '%s': field '%s': %v", t.Name(), f.Name, err)
+				return fmt.Errorf("struct '%s': field '%s': %w", t.Name(), f.Name, err)
 			}
 			v.Field(i).SetBool(vv)
 		case reflect.Slice, reflect.Array:
 			vv, err := self.GetList(name)
 			if err != nil {
-				return fmt.Errorf("struct '%s': field '%s': %v", t.Name(), f.Name, err)
+				return fmt.Errorf("struct '%s': field '%s': %w", t.Name(), f.Name, err)
 			}
 			if err := vv.unmarshal(v.Field(i)); err != nil {
 				return err
@@ -1143,9 +1079,9 @@ func (self Table) Unmarshal(dst any) error {
 		case reflect.Struct:
 			vv, err := self.GetTable(name)
 			if err != nil {
-				return fmt.Errorf("struct '%s': field '%s': %v", t.Name(), f.Name, err)
+				return fmt.Errorf("struct '%s': field '%s': %w", t.Name(), f.Name, err)
 			}
-			if vv.Unmarshal(v.Field(i).Addr().Interface()); err != nil {
+			if err := vv.Unmarshal(v.Field(i).Addr().Interface()); err != nil {
 				return err
 			}
 		default:
